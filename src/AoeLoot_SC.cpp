@@ -46,8 +46,12 @@ public:
         bool _enable = sConfigMgr->GetOption<bool>("AOELoot.Enable", true);
         bool aoelootCommandSetting = player->GetPlayerSetting("mod-aoe-loot", SETTING_DISABLE_AOE_LOOT).value;
 
-        if (player->GetGroup() || !_enable || aoelootCommandSetting)
+        if (!_enable || aoelootCommandSetting)
             return;
+        
+        if (player->GetGroup())
+            if (player->GetGroup()->GetMembersCount() > 1)
+                return;
 
         float range = 30.0f;
         uint32 gold = 0;
