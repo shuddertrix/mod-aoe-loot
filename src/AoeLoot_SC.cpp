@@ -115,12 +115,25 @@ public:
             }
         }
 
-        player->ModifyMoney(gold);
-        player->UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_LOOT_MONEY, gold);
-        WorldPacket data(SMSG_LOOT_MONEY_NOTIFY, 4 + 1);
-        data << uint32(gold);
-        data << uint8(1);
-        player->GetSession()->SendPacket(&data);
+        if (player->GetMoney() >= uint32(MAX_MONEY_AMOUNT) - gold)
+        {
+            MailSender sender(MAIL_CREATURE, 34337 /* The Postmaster */);
+            MailDraft draft("Recovered Gold", "");
+            CharacterDatabaseTransaction trans = CharacterDatabase.BeginTransaction();
+
+            draft.AddMoney(gold)
+            .SendMailTo(trans, MailReceiver(player, player->GetGUID().GetCounter()), sender);
+
+            CharacterDatabase.CommitTransaction(trans);
+
+            ChatHandler(player->GetSession()).SendSysMessage(AOE_ITEM_IN_THE_MAIL);
+        } else {
+            player->ModifyMoney(gold);
+            player->UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_LOOT_MONEY, gold);
+            WorldPacket data(SMSG_LOOT_MONEY_NOTIFY, 4 + 1);
+            data << uint32(gold);
+            data << uint8(1);
+        }
     }
 
     void OnAfterCreatureLoot(Player* player) override
