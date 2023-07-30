@@ -21,12 +21,7 @@
 #include "Chat.h"
 #include "Player.h"
 #include "ScriptedGossip.h"
-
-enum AoeLootString
-{
-    AOE_ACORE_STRING_MESSAGE = 50000,
-    AOE_ITEM_IN_THE_MAIL
-};
+#include "AoeLoot.h"
 
 class AoeLoot_Player : public PlayerScript
 {
