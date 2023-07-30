@@ -17,9 +17,11 @@
 
 // From SC
 void AddSC_AoeLoot();
+void AddSC_AoeLoot_commandscript();
 
 // Add all
 void Addmod_aoe_lootScripts()
 {
     AddSC_AoeLoot();
+    AddSC_AoeLoot_commandscript();
 }

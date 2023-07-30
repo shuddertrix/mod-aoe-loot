@@ -44,8 +44,9 @@ public:
     void OnCreatureLootAOE(Player* player)
     {
         bool _enable = sConfigMgr->GetOption<bool>("AOELoot.Enable", true);
+        bool aoelootCommandSetting = player->GetPlayerSetting("mod-aoe-loot", SETTING_DISABLE_AOE_LOOT).value;
 
-        if (player->GetGroup() || !_enable)
+        if (player->GetGroup() || !_enable || aoelootCommandSetting)
             return;
 
         float range = 30.0f;

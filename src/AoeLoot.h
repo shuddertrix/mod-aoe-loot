@@ -18,5 +18,12 @@
 enum AoeLootString
 {
     AOE_ACORE_STRING_MESSAGE = 50000,
-    AOE_ITEM_IN_THE_MAIL
+    AOE_ITEM_IN_THE_MAIL,
+    LANG_CMD_AOE_LOOT_OFF,
+    LANG_CMD_AOE_LOOT_ON
+};
+
+enum AoeLootSettings
+{
+    SETTING_DISABLE_AOE_LOOT = 0
 };
