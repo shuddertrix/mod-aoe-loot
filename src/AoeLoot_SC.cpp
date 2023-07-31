@@ -137,6 +137,7 @@ public:
             WorldPacket data(SMSG_LOOT_MONEY_NOTIFY, 4 + 1);
             data << uint32(gold);
             data << uint8(1);
+            player->GetSession()->SendPacket(&data);
         }
     }
 
