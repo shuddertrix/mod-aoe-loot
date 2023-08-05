@@ -52,12 +52,12 @@ public:
 
         if (toggle)
         {
-            player->UpdatePlayerSetting("mod-aoe-loot", SETTING_DISABLE_AOE_LOOT, 0);
+            player->UpdatePlayerSetting("mod-aoe-loot", SETTING_DISABLE_AOE_LOOT, 1);
             handler->SendSysMessage(LANG_CMD_AOE_LOOT_ON);
         }
         else
         {
-            player->UpdatePlayerSetting("mod-aoe-loot", SETTING_DISABLE_AOE_LOOT, 1);
+            player->UpdatePlayerSetting("mod-aoe-loot", SETTING_DISABLE_AOE_LOOT, 0);
             handler->SendSysMessage(LANG_CMD_AOE_LOOT_OFF);
         }
 

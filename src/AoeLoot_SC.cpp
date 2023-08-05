@@ -43,101 +43,103 @@ public:
 
     void OnCreatureLootAOE(Player* player)
     {
-        bool _enable = sConfigMgr->GetOption<bool>("AOELoot.Enable", true);
-        bool aoelootCommandSetting = player->GetPlayerSetting("mod-aoe-loot", SETTING_DISABLE_AOE_LOOT).value;
-
-        if (!_enable || aoelootCommandSetting)
-            return;
-        
-        if (player->GetGroup())
-            if (player->GetGroup()->GetMembersCount() > 1)
-                return;
-
-        float range = 30.0f;
-        uint32 gold = 0;
-
-        std::list<Creature*> creaturedie;
-        player->GetDeadCreatureListInGrid(creaturedie, range);
-
-        for (auto const& _creature : creaturedie)
+        if (player->GetPlayerSetting("mod-aoe-loot", SETTING_DISABLE_AOE_LOOT).value)
         {
-            Loot* loot = &_creature->loot;
-            gold += loot->gold;
-            loot->gold = 0;
-            uint8 lootSlot = 0;
-            uint32 maxSlot = loot->GetMaxSlotInLootFor(player);
+            bool _enable = sConfigMgr->GetOption<bool>("AOELoot.Enable", true);
+            
+            if (!_enable)
+                return;
+            
+            if (player->GetGroup())
+                if (player->GetGroup()->GetMembersCount() > 1)
+                    return;
 
-            for (uint32 i = 0; i < maxSlot; ++i)
+            float range = 30.0f;
+            uint32 gold = 0;
+
+            std::list<Creature*> creaturedie;
+            player->GetDeadCreatureListInGrid(creaturedie, range);
+
+            for (auto const& _creature : creaturedie)
             {
-                if (LootItem* item = loot->LootItemInSlot(i, player))
-                {
-                    ItemTemplate const* itemTemplate = sObjectMgr->GetItemTemplate(item->itemid);
+                Loot* loot = &_creature->loot;
+                gold += loot->gold;
+                loot->gold = 0;
+                uint8 lootSlot = 0;
+                uint32 maxSlot = loot->GetMaxSlotInLootFor(player);
 
-                    if (itemTemplate->MaxCount != 1)
+                for (uint32 i = 0; i < maxSlot; ++i)
+                {
+                    if (LootItem* item = loot->LootItemInSlot(i, player))
                     {
-                        if (player->AddItem(item->itemid, item->count))
+                        ItemTemplate const* itemTemplate = sObjectMgr->GetItemTemplate(item->itemid);
+
+                        if (itemTemplate->MaxCount != 1)
                         {
+                            if (player->AddItem(item->itemid, item->count))
+                            {
+                                player->SendNotifyLootItemRemoved(lootSlot);
+                                player->SendLootRelease(player->GetLootGUID());
+                            }
+                            else if (sConfigMgr->GetOption<bool>("AOELoot.MailEnable", true))
+                            {
+                                player->SendItemRetrievalMail(item->itemid, item->count);
+                                ChatHandler(player->GetSession()).SendSysMessage(AOE_ITEM_IN_THE_MAIL);
+                            }
+                        }
+                        else
+                        {
+                            if (!player->HasItemCount(item->itemid, 1))
+                            {
+                                player->AddItem(item->itemid, item->count);
+                            }
                             player->SendNotifyLootItemRemoved(lootSlot);
                             player->SendLootRelease(player->GetLootGUID());
                         }
-                        else if (sConfigMgr->GetOption<bool>("AOELoot.MailEnable", true))
-                        {
-                            player->SendItemRetrievalMail(item->itemid, item->count);
-                            ChatHandler(player->GetSession()).SendSysMessage(AOE_ITEM_IN_THE_MAIL);
-                        }
-                    }
-                    else
-                    {
-                        if (!player->HasItemCount(item->itemid, 1))
-                        {
-                            player->AddItem(item->itemid, item->count);
-                        }
-                        player->SendNotifyLootItemRemoved(lootSlot);
-                        player->SendLootRelease(player->GetLootGUID());
                     }
                 }
-            }
 
-            if (!loot->empty())
-            {
-                if (!_creature->IsAlive())
+                if (!loot->empty())
                 {
-                    _creature->AllLootRemovedFromCorpse();
-                    _creature->RemoveFlag(UNIT_DYNAMIC_FLAGS, UNIT_DYNFLAG_LOOTABLE);
-                    loot->clear();
-
-                    if (_creature->HasUnitFlag(UNIT_FLAG_SKINNABLE))
+                    if (!_creature->IsAlive())
                     {
-                        _creature->RemoveUnitFlag(UNIT_FLAG_SKINNABLE);
+                        _creature->AllLootRemovedFromCorpse();
+                        _creature->RemoveFlag(UNIT_DYNAMIC_FLAGS, UNIT_DYNFLAG_LOOTABLE);
+                        loot->clear();
+
+                        if (_creature->HasUnitFlag(UNIT_FLAG_SKINNABLE))
+                        {
+                            _creature->RemoveUnitFlag(UNIT_FLAG_SKINNABLE);
+                        }
                     }
                 }
+                else
+                {
+                    _creature->RemoveFlag(UNIT_DYNAMIC_FLAGS, UNIT_DYNFLAG_LOOTABLE);
+                    _creature->AllLootRemovedFromCorpse();
+                }
             }
-            else
+
+            if (player->GetMoney() >= uint32(MAX_MONEY_AMOUNT) - gold)
             {
-                _creature->RemoveFlag(UNIT_DYNAMIC_FLAGS, UNIT_DYNFLAG_LOOTABLE);
-                _creature->AllLootRemovedFromCorpse();
+                MailSender sender(MAIL_CREATURE, 34337 /* The Postmaster */);
+                MailDraft draft("Recovered Gold", "");
+                CharacterDatabaseTransaction trans = CharacterDatabase.BeginTransaction();
+
+                draft.AddMoney(gold)
+                .SendMailTo(trans, MailReceiver(player, player->GetGUID().GetCounter()), sender);
+
+                CharacterDatabase.CommitTransaction(trans);
+
+                ChatHandler(player->GetSession()).SendSysMessage(AOE_ITEM_IN_THE_MAIL);
+            } else {
+                player->ModifyMoney(gold);
+                player->UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_LOOT_MONEY, gold);
+                WorldPacket data(SMSG_LOOT_MONEY_NOTIFY, 4 + 1);
+                data << uint32(gold);
+                data << uint8(1);
+                player->GetSession()->SendPacket(&data);
             }
-        }
-
-        if (player->GetMoney() >= uint32(MAX_MONEY_AMOUNT) - gold)
-        {
-            MailSender sender(MAIL_CREATURE, 34337 /* The Postmaster */);
-            MailDraft draft("Recovered Gold", "");
-            CharacterDatabaseTransaction trans = CharacterDatabase.BeginTransaction();
-
-            draft.AddMoney(gold)
-            .SendMailTo(trans, MailReceiver(player, player->GetGUID().GetCounter()), sender);
-
-            CharacterDatabase.CommitTransaction(trans);
-
-            ChatHandler(player->GetSession()).SendSysMessage(AOE_ITEM_IN_THE_MAIL);
-        } else {
-            player->ModifyMoney(gold);
-            player->UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_LOOT_MONEY, gold);
-            WorldPacket data(SMSG_LOOT_MONEY_NOTIFY, 4 + 1);
-            data << uint32(gold);
-            data << uint8(1);
-            player->GetSession()->SendPacket(&data);
         }
     }
 
