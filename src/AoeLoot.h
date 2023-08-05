@@ -25,5 +25,5 @@ enum AoeLootString
 
 enum AoeLootSettings
 {
-    SETTING_DISABLE_AOE_LOOT = 0
+    SETTING_DISABLE_AOE_LOOT = 1
 };
